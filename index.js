@@ -101,7 +101,6 @@ export async function exportEvents(events: PluginEvent[], { global, jobs }: Clic
             continue
         }
 
-        const ip = properties?.['$ip'] || event.ip
         const timestamp = event.timestamp || properties?.timestamp || now || sent_at
         let ingestedProperties = properties
         let elements = []
@@ -110,9 +109,10 @@ export async function exportEvents(events: PluginEvent[], { global, jobs }: Clic
             eventName,
             properties: JSON.stringify(ingestedProperties || {}),
             elements: JSON.stringify(elements || {}),
-            set: JSON.stringify($set || {}),
-            set_once: JSON.stringify($set_once || {}),
+            anonymousId: JSON.stringify(anonymousId || {}),
+            service_id: JSON.stringify(service_id || {}),
             timestamp: new Date(timestamp).toISOString(),
+            elements_chain: JSON.stringify(elements_chain || {})
         }
 
         batch.push(parsedEvent)
@@ -120,7 +120,66 @@ export async function exportEvents(events: PluginEvent[], { global, jobs }: Clic
 
     if (batch.length > 0) {
         await jobs
-            .uploadBatchToPostgres({ batch, batchId: Math.floor(Math.random() * 1000000), retriesPerformedSoFar: 0 })
+            .uploadBatchToClickHouse({ batch, batchId: Math.floor(Math.random() * 1000000), retriesPerformedSoFar: 0 })
             .runNow()
+    }
+}
+
+export const insertBatchIntoClickHouse = async (payload: UploadJobPayload, { global, jobs, config }: ClickHouseMeta) => {
+    let values: any[] = []
+    let valuesString = ''
+
+    for (let i = 0; i < payload.batch.length; ++i) {
+        const { eventName, properties, elements, anonymousId, service_id, timestamp, elements_chain } =
+            payload.batch[i]
+
+
+        // Creates format: ($1, $2, $3, $4, $5, $6, $7), ($12, $13, $14, $15, $16, $17, $18)
+        valuesString += ' ('
+        for (let j = 1; j <= 7; ++j) {
+            valuesString += `$${7 * i + j}${j === 7 ? '' : ', '}`
+        }
+        valuesString += `)${i === payload.batch.length - 1 ? '' : ','}`
+        
+        values = values.concat([
+            eventName,
+            properties,
+            elements,
+            set,
+            set_once,
+            distinct_id,
+            team_id,
+            ip,
+            site_url,
+            timestamp,
+        ])
+    }
+
+    console.log(
+        `(Batch Id: ${payload.batchId}) Flushing ${payload.batch.length} event${
+            payload.batch.length > 1 ? 's' : ''
+        } to clickhouse instance`
+    )
+
+    const queryError = await executeQuery(
+        `INSERT INTO ${global.sanitizedTableName} (uuid, event, properties, elements, set, set_once, distinct_id, team_id, ip, site_url, timestamp)
+        VALUES ${valuesString}`,
+        values,
+        config
+    )
+
+    if (queryError) {
+        console.error(`(Batch Id: ${payload.batchId}) Error uploading to Postgres: ${queryError.message}`)
+        if (payload.retriesPerformedSoFar >= 15) {
+            return
+        }
+        const nextRetryMs = 2 ** payload.retriesPerformedSoFar * 3000
+        console.log(`Enqueued batch ${payload.batchId} for retry in ${nextRetryMs}ms`)
+        await jobs
+            .uploadBatchToPostgres({
+                ...payload,
+                retriesPerformedSoFar: payload.retriesPerformedSoFar + 1,
+            })
+            .runIn(nextRetryMs, 'milliseconds')
     }
 }
