@@ -1,19 +1,87 @@
 {
-    "name": "<TODO: your plugin name>",
-    "url": "<TODO: Your Plugin URL here>",
-    "description": "<TODO: Your Plugin description here>",
+    "name": "ClickHouse Export Plugin",
+    "url": "https://github.com/ouesahlem/ClickHouse",
+    "description": "Export PostHog events to a ClickHouse instance on ingestion.",
     "main": "index.js",
     "posthogVersion": ">= 1.25.0",
     "config": [
         {
-            "markdown": "<TODO: your plugin config, remove if none>"
+            "markdown": "Read [the documentation](https://github.com/ouesahlem/ClickHouse) here for instructions in getting these keys."
         },
         {
-            "key": "greeting",
-            "name": "What greeting would you like to use?",
+            "key": "hasSelfSignedCert",
+            "name": "Does your Postgres instance have a self-signed SSL certificate?",
+            "type": "choice",
+            "choices": ["Yes", "No"],
+            "default": "No",
+            "hint": "In most cases, Heroku and RDS users should select 'Yes'."
+        },
+        {
+            "key": "databaseUrl",
+            "name": "ClickHouse Database URL",
             "type": "string",
-            "default": "Hello World!",
-            "required": false
+            "hint": "You can use a URL containing host, port, username, and password, or fill in these fields individually below.",
+            "secret": true
+        },
+        {
+            "key": "host",
+            "name": "ClickHouse instance host",
+            "type": "string",
+            "hint": "Example: `clickhouse.mydomain.com` (Required if Database URL is not specified)",
+            "required_if": [["databaseUrl", ""]],
+            "visible_if": [["databaseUrl", ""]]
+        },
+        {
+            "key": "port",
+            "name": "ClickHouse instance port",
+            "type": "string",
+            "default": "30851",
+            "hint": "Default: 30851 (Required if Database URL is not specified)",
+            "required_if": [["databaseUrl", ""]],
+            "visible_if": [["databaseUrl", ""]]
+        },
+        {
+            "key": "dbName",
+            "name": "Database name",
+            "type": "string",
+            "hint": "Required if Database URL is not specified",
+            "default": "feedback",
+            "required_if": [["databaseUrl", ""]],
+            "visible_if": [["databaseUrl", ""]]
+        },
+        {
+            "key": "tableName",
+            "name": "Table name",
+            "type": "string",
+            "default": "gorse",
+            "hint": "The plugin will create a table with this name to store the events in"
+        },
+        {
+            "key": "dbUsername",
+            "name": "Username available to the plugin for accessing your database instance",
+            "type": "string",
+            "default": "",
+            "hint": "This user needs table creation access (Required if Database URL is not specified)",
+            "required_if": [["databaseUrl", ""]],
+            "visible_if": [["databaseUrl", ""]]
+        },
+        {
+            "key": "dbPassword",
+            "name": "Password for the username specified above",
+            "type": "string",
+            "default": "",
+            "hint": "Required if Database URL is not specified",
+            "required_if": [["databaseUrl", ""]],
+            "visible_if": [["databaseUrl", ""]],
+            "secret": true
+        },
+        {
+            "key": "eventsToInsert",
+            "name": "Events to include",
+            "type": "string",
+            "default": "service_clicked,service_liked,service_pinned,service_shared,subscribe_button_clicked",
+            "hint": "Comma separated list of events to include"
         }
+        
     ]
 }
