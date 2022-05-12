@@ -9,14 +9,6 @@
             "markdown": "Read [the documentation](https://github.com/ouesahlem/ClickHouse) here for instructions in getting these keys."
         },
         {
-            "key": "hasSelfSignedCert",
-            "name": "Does your ClickHouse instance have a self-signed SSL certificate?",
-            "type": "choice",
-            "choices": ["Yes", "No"],
-            "default": "No",
-            "hint": "In most cases, Heroku and RDS users should select 'Yes'."
-        },
-        {
             "key": "databaseUrl",
             "name": "ClickHouse Database URL",
             "type": "string",
