@@ -101,10 +101,6 @@ export async function exportEvents(events: PluginEvent[], { global, jobs }: Clic
             continue
         }
 
-        let anonymousId = event.properties?.segment_traits?.anonymousId
-        let service_id = event.properties?.service_id
-        let elements_chain = event.properties?.elements_chain
-
         const parsedEvent: ParsedEvent = {
             eventName,
             anonymousId: JSON.stringify(anonymousId || {}),
