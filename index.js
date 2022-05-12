@@ -17,7 +17,6 @@ type ClickHousePlugin = Plugin<{
         dbUsername: string
         dbPassword: string
         eventsToInsert: string
-        hasSelfSignedCert: 'Yes' | 'No'
     }
 }>
     
@@ -186,10 +185,7 @@ const executeQuery = async (query: string, values: any[], config: ClickHouseMeta
               port: parseInt(config.port),
           }
     const pgClient = new Client({
-        ...basicConnectionOptions,
-        ssl: {
-            rejectUnauthorized: config.hasSelfSignedCert === 'No',
-        },
+        ...basicConnectionOptions
     })
 
     await pgClient.connect()
