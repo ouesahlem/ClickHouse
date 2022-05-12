@@ -163,14 +163,14 @@ export const insertBatchIntoClickHouse = async (payload: UploadJobPayload, { glo
     )
 
     if (queryError) {
-        console.error(`(Batch Id: ${payload.batchId}) Error uploading to Postgres: ${queryError.message}`)
+        console.error(`(Batch Id: ${payload.batchId}) Error uploading to ClickHouse: ${queryError.message}`)
         if (payload.retriesPerformedSoFar >= 15) {
             return
         }
         const nextRetryMs = 2 ** payload.retriesPerformedSoFar * 3000
         console.log(`Enqueued batch ${payload.batchId} for retry in ${nextRetryMs}ms`)
         await jobs
-            .uploadBatchToPostgres({
+            .uploadBatchToClickHouse({
                 ...payload,
                 retriesPerformedSoFar: payload.retriesPerformedSoFar + 1,
             })
