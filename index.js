@@ -23,7 +23,7 @@ type ClickHousePlugin = Plugin<{
     
 type ClickHouseMeta = PluginMeta<ClickHousePlugin>
     
-interface ParsedFeedback {
+interface ParsedEvent {
     feedback_type: string
     user_id: string
     item_id: string
@@ -32,7 +32,7 @@ interface ParsedFeedback {
 }
 
 interface UploadJobPayload {
-    batch: ParsedFeedback[]
+    batch: ParsedEvent[]
     batchId: number
     retriesPerformedSoFar: number
 }
@@ -102,13 +102,12 @@ export async function exportEvents(events: PluginEvent[], { global, jobs }: Clic
         }
 
         const timestamp = event.timestamp || properties?.timestamp || now || sent_at
-        let ingestedProperties = properties
-        let elements = []
+        let anonymousId = event.properties?.segment_traits?.anonymousId
+        let service_id = event.properties?.service_id
+        let elements_chain = event.properties?.elements_chain
 
         const parsedEvent: ParsedEvent = {
             eventName,
-            properties: JSON.stringify(ingestedProperties || {}),
-            elements: JSON.stringify(elements || {}),
             anonymousId: JSON.stringify(anonymousId || {}),
             service_id: JSON.stringify(service_id || {}),
             timestamp: new Date(timestamp).toISOString(),
@@ -130,28 +129,23 @@ export const insertBatchIntoClickHouse = async (payload: UploadJobPayload, { glo
     let valuesString = ''
 
     for (let i = 0; i < payload.batch.length; ++i) {
-        const { eventName, properties, elements, anonymousId, service_id, timestamp, elements_chain } =
+        const { eventName, anonymousId, service_id, timestamp, elements_chain } =
             payload.batch[i]
 
 
-        // Creates format: ($1, $2, $3, $4, $5, $6, $7), ($12, $13, $14, $15, $16, $17, $18)
+        // Creates format: ($1, $2, $3, $4, $5), ($12, $13, $14, $15, $16)
         valuesString += ' ('
-        for (let j = 1; j <= 7; ++j) {
-            valuesString += `$${7 * i + j}${j === 7 ? '' : ', '}`
+        for (let j = 1; j <= 5; ++j) {
+            valuesString += `$${5 * i + j}${j === 5 ? '' : ', '}`
         }
         valuesString += `)${i === payload.batch.length - 1 ? '' : ','}`
         
         values = values.concat([
             eventName,
-            properties,
-            elements,
-            set,
-            set_once,
-            distinct_id,
-            team_id,
-            ip,
-            site_url,
+            anonymousId,
+            service_id,
             timestamp,
+            elements_chain
         ])
     }
 
@@ -162,7 +156,7 @@ export const insertBatchIntoClickHouse = async (payload: UploadJobPayload, { glo
     )
 
     const queryError = await executeQuery(
-        `INSERT INTO ${global.sanitizedTableName} (uuid, event, properties, elements, set, set_once, distinct_id, team_id, ip, site_url, timestamp)
+        `INSERT INTO ${global.sanitizedTableName} (feedback_type, user_id, item_id, time_stamp, comment)
         VALUES ${valuesString}`,
         values,
         config
@@ -182,4 +176,41 @@ export const insertBatchIntoClickHouse = async (payload: UploadJobPayload, { glo
             })
             .runIn(nextRetryMs, 'milliseconds')
     }
+}
+
+const executeQuery = async (query: string, values: any[], config: ClickHouseMeta['config']): Promise<Error | null> => {
+    const basicConnectionOptions = config.databaseUrl
+        ? {
+              connectionString: config.databaseUrl,
+          }
+        : {
+              user: config.dbUsername,
+              password: config.dbPassword,
+              host: config.host,
+              database: config.dbName,
+              port: parseInt(config.port),
+          }
+    const pgClient = new Client({
+        ...basicConnectionOptions,
+        ssl: {
+            rejectUnauthorized: config.hasSelfSignedCert === 'No',
+        },
+    })
+
+    await pgClient.connect()
+
+    let error: Error | null = null
+    try {
+        await pgClient.query(query, values)
+    } catch (err) {
+        error = err as Error
+    }
+
+    await pgClient.end()
+
+    return error
+}
+
+const sanitizeSqlIdentifier = (unquotedIdentifier: string): string => {
+    return unquotedIdentifier.replace(/[^\w\d_]+/g, '')
 }
