@@ -10,7 +10,7 @@
         },
         {
             "key": "hasSelfSignedCert",
-            "name": "Does your Postgres instance have a self-signed SSL certificate?",
+            "name": "Does your ClickHouse instance have a self-signed SSL certificate?",
             "type": "choice",
             "choices": ["Yes", "No"],
             "default": "No",
