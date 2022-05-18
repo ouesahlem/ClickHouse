@@ -1,6 +1,6 @@
 import { createBuffer } from '@posthog/plugin-contrib'
 import { Plugin, PluginMeta, PluginEvent } from '@posthog/plugin-scaffold'
-import { Client } from 'clickhouse_driver'
+import { Client } from '@posthog/clickhouse'
 
 type ClickHousePlugin = Plugin<{
     global: {
