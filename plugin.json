@@ -45,7 +45,7 @@
             "name": "Database name",
             "type": "string",
             "hint": "Required if Database URL is not specified",
-            "default": "feedback",
+            "default": "gorse",
             "required_if": [["databaseUrl", ""]],
             "visible_if": [["databaseUrl", ""]]
         },
@@ -53,7 +53,7 @@
             "key": "tableName",
             "name": "Table name",
             "type": "string",
-            "default": "gorse",
+            "default": "feedback",
             "hint": "The plugin will create a table with this name to store the events in"
         },
         {
